@@ -1,0 +1,134 @@
+
+//////////////// frontend  //////////////////
+
+////////////////////////////////////////////////
+.env
+REACT_APP_STRIPE = pk_test_51NIKwZSG3WiTAfazYDuL6ygLN2r6L7UBUbvUU2a6irphNBrtyhT1Cja4mrPcTLCCCy3RtB1U71aDKwGpXssFFDDd00oVPkThAj
+///////////////////////////////////////////////////////////////
+
+import StripeCheckout from "react-stripe-checkout";
+
+const cart = useSelector((state) => state.cart);
+  const [stripeToken, setStripeToken] = useState(null);
+
+ const onToken = (token) => {
+    setStripeToken(token);
+  };
+
+
+  useEffect(() => {
+    const makeRequest = async () => {
+      try {
+        const res = await userRequest.post("/checkout/payment", {
+          tokenId: stripeToken.id,
+          amount: 500,
+        });
+        history.push("/success", {
+          stripeData: res.data,
+          products: cart });
+      } catch {}
+    };
+    stripeToken && makeRequest();
+  }, [stripeToken, cart.total, history]);
+
+
+
+            <StripeCheckout
+              name="ShopExpress"
+              image="https://avatars.githubusercontent.com/u/1486366?v=4"
+              billingAddress
+              shippingAddress
+              description={`Your total is $${cart.total}`}
+              amount={cart.total * 100}
+              token={onToken}
+              stripeKey={KEY}
+            >
+              <Button>CHECKOUT NOW</Button>
+
+
+///////////////////////////////////////////////////////////////////
+                   Backend
+///////////////////////////////////////////
+.env
+STRIPE_KEY = sk_test_51NIKwZSG3WiTAfazBpAubdKk59hlQlafqwCTJPMcEGSaCn0SON0MgTcwmCyq03L0cRpaYcIlFHodRTSnwOWecIMv00sqglaXjB
+//////////////////////////////////////////////////
+
+
+
+const router = require("express").Router();
+// const stripe = require("stripe")(process.env.STRIPE_KEY);
+const KEY = process.env.STRIPE_KEY
+const stripe = require("stripe")(KEY);
+
+router.post("/payment", (req, res) => {
+  stripe.charges.create(
+    {
+      source: req.body.tokenId,
+      amount: req.body.amount,
+      currency: "usd",
+    },
+    (stripeErr, stripeRes) => {
+      if (stripeErr) {
+        res.status(500).json(stripeErr);
+      } else {
+        res.status(200).json(stripeRes);
+      }
+    }
+  );
+});
+
+module.exports = router;
+
+
+
+
+////////////after stripe response it go to order page success and order is placed automatically
+
+
+
+const Success = () => {
+  const location = useLocation();
+  //in Cart.jsx I sent data and cart. Please check that page for the changes.(in video it's only data)
+  const data = location.state.stripeData;
+  const cart = location.state.cart;
+  const currentUser = useSelector((state) => state.user.currentUser);
+  const [orderId, setOrderId] = useState(null);
+
+  useEffect(() => {
+    const createOrder = async () => {
+      try {
+        const res = await userRequest.post("/orders", {
+          userId: currentUser._id,
+          products: cart.products.map((item) => ({
+            productId: item._id,
+            quantity: item._quantity,
+          })),
+          amount: cart.total,
+          address: data.billing_details.address,
+        });
+        setOrderId(res.data._id);
+      } catch {}
+    };
+    data && createOrder();
+  }, [cart, data, currentUser]);
+
+  return (
+    <div
+      style={{
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {orderId
+        ? `Order has been created successfully. Your order number is ${orderId}`
+        : `Successfull. Your order is being prepared...`}
+      <button style={{ padding: 10, marginTop: 20 }}>Go to Homepage</button>
+    </div>
+  );
+};
+
+export default Success;
+
